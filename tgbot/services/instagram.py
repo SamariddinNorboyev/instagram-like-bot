@@ -48,6 +48,8 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
                         
             # Ba'zan virtual kliklar ishlamay qolsa, "force=True" yordam beradi
             await login_button.click(force=True)
+
+            await asyncio.sleep(4)
         
             # Kirish jarayoni uchun kutish
             error_message_locator = page.locator("[id='alerts'], [class*='_ab8w'] p, [role='alert']")
@@ -56,7 +58,6 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
                 # 2. Chiqqan bo'lsa, o'sha yozuvni (matnni) o'qib olamiz
                 alert_text = await error_message_locator.text_content()
                 return False, f"Instagram xabari: {alert_text}"
-                
                         
             if "login" in page.url:
                 # Agar ekranda biror xato matni ko'rinib turgan bo'lsa, o'shani olamiz
