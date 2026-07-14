@@ -28,8 +28,9 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             await page.wait_for_selector("input[name='username']", timeout=15000)
             await page.fill("input[name='username']", username)
             await page.fill("input[name='password']", password)
-            await page.wait_for_selector("button[type='submit']", timeout=10000)
-            await page.click("button[type='submit']")
+            login_button = page.locator("button[type='submit'], button:has-text('Log in')").first
+            await login_button.wait_for(state="visible", timeout=10000)
+            await login_button.click()
         
             await asyncio.sleep(5)
             
