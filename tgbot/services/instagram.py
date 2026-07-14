@@ -1,8 +1,47 @@
-# tgbot/services/instagram.py
 import os
 import asyncio
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Page, BrowserContext
 from tgbot.config import COOKIES_DIR
+
+
+# Instagram to'liq qo'llab-quvvatlaydigan eng yengil mobil Chrome User-Agent
+MODERN_USER_AGENT = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+
+
+async def _handle_instagram_popups(page: Page, context: BrowserContext, cookie_path: str = None) -> None:
+    """
+    Instagram sahifalarida to'satdan chiqadigan barcha pop-up va 
+    bildirishnoma oynalarini ("OK", "Save info", va h.k.) birma-bir tozalaydi.
+    """
+    try:
+        # 1. "The messaging tab has a new look" kabi xabarlarning "OK" tugmasi
+        ok_button = page.locator(
+            "button:has-text('OK'), "
+            "button:has-text('Ok'), "
+            "[role='button']:has-text('OK'), "
+            "[role='button']:has-text('Ok')"
+        ).first
+        if await ok_button.is_visible(timeout=2500):
+            await ok_button.click(force=True)
+            await asyncio.sleep(2)
+
+        # 2. "Save login info" oynasidagi "Save info" tugmasi
+        save_info_button = page.locator(
+            "button:has-text('Save info'), "
+            "button:has-text('Save Info'), "
+            "div[role='button']:has-text('Save info'), "
+            "div[role='button']:has-text('Save Info')"
+        ).first
+        if await save_info_button.is_visible(timeout=2500):
+            await save_info_button.click(force=True)
+            await asyncio.sleep(3)
+            # Agar kuki yo'li berilgan bo'lsa, yangi holatni faylga yozamiz
+            if cookie_path:
+                await context.storage_state(path=cookie_path)
+                
+    except Exception as e:
+        print(f"Instagram pop-up oynalarini tozalashda xato yuz berdi: {e}")
+
 
 async def login_and_save_session(user_id: int, username: str, password: str) -> tuple[bool, str]:
     # Kuki saqlanadigan papka mavjudligini tekshiramiz
@@ -12,10 +51,10 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
     cookie_path = f"{COOKIES_DIR}/{user_id}.json"
     
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
             viewport={"width": 375, "height": 812},
-            user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1"
+            user_agent=MODERN_USER_AGENT
         )
         page = await context.new_page()
         
@@ -38,14 +77,14 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
 
             # Login tugmasini bosish
             login_button = page.locator(
-                            "button[type='submit'], "
-                            "div[role='button']:has-text('Log in'), "
-                            "div[role='button']:has-text('log in'), "
-                            "button:has-text('Log in'), "
-                            "button:has-text('log in'), "
-                            "[aria-label='Log in'], "
-                            "form button"
-                        ).first
+                "button[type='submit'], "
+                "div[role='button']:has-text('Log in'), "
+                "div[role='button']:has-text('log in'), "
+                "button:has-text('Log in'), "
+                "button:has-text('log in'), "
+                "[aria-label='Log in'], "
+                "form button"
+            ).first
             
             await login_button.wait_for(state="visible", timeout=10000)
             await login_button.click(force=True)
@@ -64,39 +103,26 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
                 await browser.close()
                 return False, "Login yoki parol noto'g'ri."
 
-            # === "Save login info" oynasini yopish yoki tasdiqlash ===
-            try:
-                # Faqat "Save info" tugmasini qidiramiz
-                save_info_button = page.locator(
-                    "button:has-text('Save info'), "
-                    "button:has-text('Save Info'), "
-                    "div[role='button']:has-text('Save info'), "
-                    "div[role='button']:has-text('Save Info')"
-                ).first
-                            
-                if await save_info_button.is_visible(timeout=7000):
-                    await save_info_button.click(force=True)
-                    await asyncio.sleep(4) # Kuki saqlanishini kutamiz
-            except Exception as e:
-                print(f"Save info oynasini bosishda xato: {e}")
+            # Pop-up va bildirishnomalarni tozalash (Save info bilan birga)
+            await _handle_instagram_popups(page, context)
 
-            # XATOLIK BERAYOTGAN NAVIGATSIYA KUTISH OLIB TASHLANDI
             await asyncio.sleep(3)
             
             # MUHIM: Sessiya (Kuki)ni to'liq saqlaymiz
             await context.storage_state(path=cookie_path)
-            await asyncio.sleep(2) # Fayl tizimiga yozilishini kutamiz
+            await asyncio.sleep(2)  # Fayl tizimiga yozilishini kutamiz
             await browser.close()
             return True, ""
             
         except Exception as e:
             try:
-                await page.screenshot(path="login_error.png", full_page=True)
+                await page.screenshot(path=f"login_error_{user_id}.png", full_page=True)
             except Exception as screenshot_err:
                 print(f"Screenshot olishda xatolik: {screenshot_err}")
                         
             await browser.close()
             return False, str(e)
+
 
 async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path: str) -> tuple[bool, str]:
     cookie_path = f"{COOKIES_DIR}/{user_id}.json"
@@ -109,7 +135,7 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
         context = await browser.new_context(
             storage_state=cookie_path,
             viewport={"width": 375, "height": 812},
-            user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1"
+            user_agent=MODERN_USER_AGENT
         )
         page = await context.new_page()
         
@@ -122,27 +148,13 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
             is_logged_in = await page.locator("a[href*='/accounts/login/'], button:has-text('Log in'), button:has-text('log in')").count() == 0
                         
             if not is_logged_in:
-                # Kuki eski bo'lsa, brauzerni yopamiz va qayta kirishni so'raymiz
                 await browser.close()
                 return False, "Sessiya muddati tugagan (Kukilar eskirgan). Iltimos, profilingizga qaytadan kiring: /start"
                 
-            # 1. "Save info" oynasi bu yerda ham chiqsa, uni bosib o'tamiz
-            try:
-                save_info_button = page.locator(
-                    "button:has-text('Save info'), "
-                    "button:has-text('Save Info'), "
-                    "div[role='button']:has-text('Save info'), "
-                    "div[role='button']:has-text('Save Info')"
-                ).first
-                if await save_info_button.is_visible(timeout=5000):
-                    await save_info_button.click(force=True)
-                    await asyncio.sleep(3)
-                    # Kuki yangilangani uchun uni qayta saqlab qo'yamiz
-                    await context.storage_state(path=cookie_path)
-            except Exception:
-                pass
+            # Pop-up va bildirishnomalarni shu yerda ham tekshirib tozalaymiz
+            await _handle_instagram_popups(page, context, cookie_path)
 
-            # 2. "Continue on web" tugmasi chiqsa bosamiz
+            # 3. "Continue on web" tugmasi chiqsa bosamiz
             try:
                 continue_web = page.locator("a:has-text('Continue on web'), button:has-text('Continue on web'), [role='button']:has-text('Continue on web')").first
                 if await continue_web.is_visible():
@@ -151,7 +163,7 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
             except Exception:
                 pass
 
-            # 3. Agar har xil qalqib chiquvchi oynalar bo'lsa, yopamiz
+            # 4. Agar boshqa turdagi kichik yopish ("X") tugmalari bo'lsa
             try:
                 close_button = page.locator("svg[aria-label='Close'], svg[aria-label='Yopish']").first
                 if await close_button.is_visible():
@@ -160,30 +172,37 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
             except Exception:
                 pass
 
-            # 4. Layk bosilgan/bosilmaganini tekshirish
-            already_liked = await page.locator("svg[aria-label='Unlike'], svg[aria-label='Yoqtirishdan voz kechish']").count()
-            if already_liked > 0:
+            # 5. Layk bosilgan/bosilmaganini tekshirish
+            already_liked_locator = page.locator(
+                "svg[aria-label='Unlike'], "
+                "svg[aria-label='Yoqtirishdan voz kechish'], "
+                "span svg[fill='rgb(255, 48, 64)']" # Qizil yurakcha rangi bo'yicha
+            ).first
+            
+            if await already_liked_locator.is_visible(timeout=3000):
                 await page.screenshot(path=screenshot_path)
                 return True, "Ushbu postga avvaldan layk bosilgan!"
-            
-            # 5. Layk tugmasini bosish
+                        
+            # 6. Agar layk bosilmagan bo'lsa, bosish qismini ishga tushiramiz
             like_button = page.locator(
                 "span[class*='xp7jhwk'] svg[aria-label='Like'], "
                 "svg[aria-label='Like'], "
+                "svg[aria-label='Yoqtirish'], "
                 "svg[aria-label='Yurakcha'], "
                 "button:has(svg[aria-label='Like'])"
             ).first
-            
-            await like_button.wait_for(state="visible", timeout=10000)
+                        
+            # Tugma ko'rinishini kutamiz va bosamiz
+            await like_button.wait_for(state="visible", timeout=5000)
             await like_button.click(force=True)
-            await asyncio.sleep(2)
-                
+            await asyncio.sleep(3) # Layk serverga yetib borishini kutamiz
+                            
             await page.screenshot(path=screenshot_path)
             return True, ""
             
         except Exception as e:
             try:
-                await page.screenshot(path="like_error.png")
+                await page.screenshot(path=f"like_error_{user_id}.png")
             except Exception:
                 pass
             return False, str(e)

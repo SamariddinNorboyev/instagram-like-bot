@@ -86,9 +86,9 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
 async def handle_instagram_link(message: Message) -> None:
     link = message.text.strip()
     
-    if not re.match(r"(https?://)?(www\.)?instagram\.com/(p|reel|tv)/.+", link):
-        await message.answer("Iltimos, faqat to'g'ri Instagram post yoki reel havolasini yuboring.")
-        return
+    if not re.match(r"(https?://)?(www\.)?instagram\.com/(p|reel|reels|tv)/.+", link):
+            await message.answer("Iltimos, faqat to'g'ri Instagram post yoki reel havolasini yuboring.")
+            return
         
     status_message = await message.answer("Like bosilmoqda va screenshot olinmoqda...")
     user_id = message.from_user.id
