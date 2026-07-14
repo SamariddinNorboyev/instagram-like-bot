@@ -37,8 +37,23 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
         await state.set_state(BotState.ready_for_links)
         await status_message.edit_text("Instagram ulandi! Endi post havolasini yuboring.")
     else:
-        await status_message.edit_text(f"Xatolik: {error_msg}\nQayta urinib ko'ring yoki /start yuboring.")
-
+            # Agarda login_error.png fayli mavjud bo'lsa, uni foydalanuvchiga yuboramiz
+            if os.path.exists("login_error.png"):
+                error_photo = FSInputFile("login_error.png")
+                await message.answer_photo(
+                    photo=error_photo, 
+                    caption="⚠️ Instagram ekranida mana bu holat yuz berdi. Tugma topilmadi:"
+                )
+                # Rasmni yuborgach, keyingi safar yangi rasm tushishi uchun eskisini o'chirib yuboramiz
+                os.remove("login_error.png")
+    
+            await state.set_state(BotState.waiting_for_username)
+            await message.answer(
+                f"❌ **Kirishda xatolik yuz berdi!**\n\n"
+                f"⚠️ *Xatolik:* {error_msg}\n\n"
+                f"👤 **Qaytadan urinib ko'ring. Instagram username-ni kiriting:**"
+            )
+            
 @liker_router.message(BotState.ready_for_links)
 async def handle_instagram_link(message: Message) -> None:
     link = message.text.strip()
