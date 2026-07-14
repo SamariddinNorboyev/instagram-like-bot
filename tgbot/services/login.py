@@ -53,9 +53,11 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             await login_button.click(force=True)
             
             # Login amalga oshishini va sahifa yangilanishini kutamiz
-            await asyncio.sleep(8)
+            try:
+                await page.wait_for_url(lambda url: "login" not in str(url), timeout=7000)
+            except Exception:
+                pass
             
-            # Agar URL manzilida hali ham login so'zi bo'lsa, xatolikni aniqlaymiz
             if "login" in page.url:
                 error_message_locator = page.locator("[id='alerts'], [class*='_ab8w'] p, [role='alert']")
                 if await error_message_locator.is_visible():
@@ -66,14 +68,18 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
                 await browser.close()
                 return False, "Login yoki parol noto'g'ri."
 
-            # Pop-up va bildirishnomalarni tozalash (Save info bilan birga)
-            await _handle_instagram_popups(page, context)
-
-            await asyncio.sleep(3)
+            try:
+                await _handle_instagram_popups(page, context)
+                await asyncio.sleep(1)
+            except Exception as popup_err:
+                print(f"Pop-up tozalashda kichik xatolik (o'tkazib yuborildi): {popup_err}")
             
-            # MUHIM: Sessiya (Kuki)ni to'liq saqlaymiz
-            await context.storage_state(path=cookie_path)
-            await asyncio.sleep(2)  # Fayl tizimiga yozilishini kutamiz
+            try:
+                await context.storage_state(path=cookie_path)
+                await asyncio.sleep(0.5)
+            except Exception as cookie_err:
+                await browser.close()
+                return False, f"Sessiyani saqlashda xatolik yuz berdi: {cookie_err}"
             await browser.close()
             return True, ""
             

@@ -23,8 +23,10 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
         
         try:
             await page.goto(post_url)
-            await page.wait_for_load_state("networkidle")
-            await asyncio.sleep(4)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=4.0)
+            except Exception:
+                pass
             
             # Tizimda bormizni yoki yo'qligimizni tekshiramiz
             is_logged_in = await page.locator("a[href*='/accounts/login/'], button:has-text('Log in'), button:has-text('log in')").count() == 0

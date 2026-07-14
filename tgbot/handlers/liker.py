@@ -39,7 +39,7 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
     
     if success:
         await state.set_state(BotState.ready_for_links)
-        await status_message.edit_text("Instagram ulandi! Endi post havolasini yuboring.")
+        await status_message.answer("<b>✨ Instagram ulandi!</b>\n📥 Endi post yoki reel havolasini yuboring.", parse_mode="HTML")
     else:
         # 1. Kutish xabarini o'chiramiz
         try:
@@ -106,7 +106,19 @@ async def handle_instagram_link(message: Message) -> None:
     if success:
         await status_message.delete()
         photo = FSInputFile(screenshot_path)
-        await message.answer_photo(photo, caption="Muvaffaqiyatli bajarildi!")
+
+        caption_text = (
+            "<b>✅ Muvaffaqiyatli bajarildi!</b>\n\n"
+            f"🔗 <b>Havola:</b> {link}\n"
+            "📸 <i>Bajarilgan ish skrinshoti yuqorida ilova qilindi.</i>\n\n"
+            "🚀 Boshqa havola yuborishingiz mumkin."
+        )
+        
+        await message.answer_photo(
+            photo=photo, 
+            caption=caption_text, 
+            parse_mode="HTML"
+        )
         
         if os.path.exists(screenshot_path):
             os.remove(screenshot_path)
