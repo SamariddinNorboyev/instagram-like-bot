@@ -49,7 +49,7 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             # Ba'zan virtual kliklar ishlamay qolsa, "force=True" yordam beradi
             await login_button.click(force=True)
 
-            await asyncio.sleep(4)
+            await asyncio.sleep(6)
         
             # Kirish jarayoni uchun kutish
             error_message_locator = page.locator("[id='alerts'], [class*='_ab8w'] p, [role='alert']")
