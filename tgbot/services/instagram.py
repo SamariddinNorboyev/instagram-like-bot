@@ -33,15 +33,21 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             await page.fill("input[name='username']", username)
             await page.fill("input[name='password']", password)
             
-            # 2. "Log in" tugmasini aniq topamiz
-            # Instagram mobil ko'rinishida tugma ichidagi matn kichik harflarda bo'lishi ham mumkin
-            login_button = page.locator("button[type='submit'], button:has-text('Log in'), button:has-text('log in')").first
+            # 2. LOGIN TUGMASINI ANIQLASH (Kombinatsiyalangan ishonchli locatorlar)
+            # Instagram bir nechta variantdan birini ishlatsa ham adashmaydigan selector yaratdik:
+            login_button = page.locator(
+                "button[type='submit'], "
+                "form button, "
+                "button._acan._acap._acas._aj1-, " # Instagramning mobil klassi
+                "div[role='button']:has-text('Log in'), "
+                "button:has-text('Log in')"
+            ).first
                         
-            # 3. Tugma bosishga tayyor (disabled bo'lmagan) holatga kelishini kutamiz
-            await login_button.wait_for(state="visible", timeout=5000)
+            # 3. Tugma ekranda to'liq yuklanishini kutamiz va bosamiz
+            await login_button.wait_for(state="visible", timeout=10000)
                         
-            # 4. Tugmani tabiiy bosish (force ishlatilmaydi)
-            await login_button.click()
+            # Ba'zan virtual kliklar ishlamay qolsa, "force=True" yordam beradi
+            await login_button.click(force=True)
         
             # Kirish jarayoni uchun kutish
             error_message_locator = page.locator("[id='alerts'], [class*='_ab8w'] p, [role='alert']")
