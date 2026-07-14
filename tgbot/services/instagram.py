@@ -17,14 +17,15 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
         
         try:
             await page.goto("https://www.instagram.com/accounts/login/")
-            await page.wait_for_selector("input[name='username']", timeout=20000)
-            
-            # Kuki oynasi chiqsa, uni yopamiz
             try:
-                await page.click("button:has-text('Allow'), button:has-text('Accept')", timeout=3000)
+                cookie_button = page.locator("button:has-text('Allow all cookies'), button:has-text('Allow essential and optional cookies')")
+                await cookie_button.wait_for(state="visible", timeout=7000)
+                await cookie_button.click()
+                await asyncio.sleep(1)
             except Exception:
                 pass
-            
+
+            await page.wait_for_selector("input[name='username']", timeout=15000)
             await page.fill("input[name='username']", username)
             await page.fill("input[name='password']", password)
             await page.wait_for_selector("button[type='submit']", timeout=10000)
