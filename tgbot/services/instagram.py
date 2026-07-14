@@ -37,13 +37,20 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             await page.keyboard.press("Enter")
         
             # Kirish jarayoni uchun kutish
-            await asyncio.sleep(6)
-            
-            # Agar URL manzilida hali ham login so'zi bo'lsa, demak ma'lumotlar xato
+            # 1. Instagram tomonidan ko'rsatilgan haqiqiy xato matnini qidiramiz
+            error_message_locator = page.locator("[id='alerts'], [class*='_ab8w'] p, [role='alert']")
+                        
             if "login" in page.url:
+                # Agar ekranda biror xato matni ko'rinib turgan bo'lsa, o'shani olamiz
+                if await error_message_locator.is_visible():
+                    alert_text = await error_message_locator.text_content()
+                    await browser.close()
+                    return False, f"Instagram xabari: {alert_text}"
+                            
+                # Agar matn yo'q, lekin baribir login sahifasida bo'lsak
                 await browser.close()
-                return False, "Login yoki parol noto'g'ri."
-                
+                return False, "Tizimga kirish rad etildi (Instagram bot deb gumon qilgan bo'lishi mumkin)."
+                            
             await context.storage_state(path=cookie_path)
             await browser.close()
             return True, ""

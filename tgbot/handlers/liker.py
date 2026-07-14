@@ -37,34 +37,43 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
         await state.set_state(BotState.ready_for_links)
         await status_message.edit_text("Instagram ulandi! Endi post havolasini yuboring.")
     else:
-        # Status xabarini o'chiramiz
+        # 1. Kutish xabarini o'chiramiz
         try:
             await status_message.delete()
         except Exception:
             pass
 
-        # Qayta urinish uchun /start tugmasi
+        # 2. Qayta urinish uchun /start tugmasi
         start_keyboard = ReplyKeyboardMarkup(
             keyboard=[[KeyboardButton(text="/start")]],
             resize_keyboard=True,
             one_time_keyboard=True
         )
 
-        # Agar xatolik rasmi tushgan bo'lsa yuboramiz
+        # 3. Agar serverda screenshot (login_error.png) mavjud bo'lsa, foydalanuvchiga yuboramiz
         if os.path.exists("login_error.png"):
             error_photo = FSInputFile("login_error.png")
             try:
                 await message.answer_photo(
                     photo=error_photo, 
-                    caption="⚠️ Instagram ekranida mana bu holat yuz berdi:"
+                    caption=(
+                        f"❌ **Kirishda xatolik yuz berdi!**\n\n"
+                        f"⚠️ *Tafsilot:* {error_msg}\n\n"
+                        f"Ekran holati yuqoridagi rasmda ko'rsatilgan. "
+                        f"Qayta boshlash uchun **/start** tugmasini bosing:"
+                    ),
+                    reply_markup=start_keyboard,
+                    parse_mode="Markdown"
                 )
+                # Rasmni yuborgandan so'ng xotirada qolmasligi uchun o'chiramiz
                 os.remove("login_error.png")
+                await state.clear()
+                return  # Rasmni yuborib bo'lgach, jarayonni to'xtatamiz
             except Exception as e:
-                print(f"Rasm yuborishda xatolik: {e}")
+                print(f"Rasm yuborishda xatolik yuz berdi: {e}")
 
-        # Holatni (state) tozalaymiz, foydalanuvchi /start orqali qayta boshlashi oson bo'ladi
+        # 4. Agar biron sabab bilan rasm yaratilmagan bo'lsa, faqat matnli xabar yuboramiz
         await state.clear()
-        
         await message.answer(
             f"❌ **Kirishda xatolik yuz berdi!**\n\n"
             f"⚠️ *Xatolik:* {error_msg}\n\n"
@@ -95,4 +104,18 @@ async def handle_instagram_link(message: Message) -> None:
         if os.path.exists(screenshot_path):
             os.remove(screenshot_path)
     else:
-        await status_message.edit_text(f"Xatolik yuz berdi: {error_msg}")
+        # Like bosishda xato bo'lsa, o'sha paytdagi rasmni (like_error.png) yuboramiz
+        try:
+            await status_message.delete()
+        except Exception:
+            pass
+
+        if os.path.exists("like_error.png"):
+            error_photo = FSInputFile("like_error.png")
+            await message.answer_photo(
+                photo=error_photo,
+                caption=f"❌ Like bosishda muammo bo'ldi: {error_msg}"
+            )
+            os.remove("like_error.png")
+        else:
+            await message.answer(f"❌ Xatolik yuz berdi: {error_msg}")
