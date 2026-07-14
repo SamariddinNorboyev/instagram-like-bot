@@ -28,17 +28,29 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             except Exception:
                 pass
 
-            # Inputlar tayyor bo'lishini kutamiz
+            # 1. Inputlar tayyor bo'lishini kutamiz va to'ldiramiz
             await page.wait_for_selector("input[name='username']", state="visible", timeout=15000)
             await page.fill("input[name='username']", username)
             await page.fill("input[name='password']", password)
-
-            # Tabiiy usulda formani jo'natish (Enter tugmasi orqali)
-            await page.keyboard.press("Enter")
+            
+            # 2. "Log in" tugmasini aniq topamiz
+            # Instagram mobil ko'rinishida tugma ichidagi matn kichik harflarda bo'lishi ham mumkin
+            login_button = page.locator("button[type='submit'], button:has-text('Log in'), button:has-text('log in')").first
+                        
+            # 3. Tugma bosishga tayyor (disabled bo'lmagan) holatga kelishini kutamiz
+            await login_button.wait_for(state="visible", timeout=5000)
+                        
+            # 4. Tugmani tabiiy bosish (force ishlatilmaydi)
+            await login_button.click()
         
             # Kirish jarayoni uchun kutish
-            # 1. Instagram tomonidan ko'rsatilgan haqiqiy xato matnini qidiramiz
             error_message_locator = page.locator("[id='alerts'], [class*='_ab8w'] p, [role='alert']")
+            # 1. Haqiqatdan ham ekranda xato yozuv chiqdimi?
+            if await error_message_locator.is_visible():
+                # 2. Chiqqan bo'lsa, o'sha yozuvni (matnni) o'qib olamiz
+                alert_text = await error_message_locator.text_content()
+                return False, f"Instagram xabari: {alert_text}"
+                
                         
             if "login" in page.url:
                 # Agar ekranda biror xato matni ko'rinib turgan bo'lsa, o'shani olamiz
