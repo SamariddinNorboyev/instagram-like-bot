@@ -1,8 +1,8 @@
-# tgbot/handlers/liker.py
+# Instagram login va linklar bilan ishlovchi handler
 import os
 import re
 from aiogram import Router, F
-from aiogram.types import Message, ReplyKeyboardRemove, FSInputFile, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, ReplyKeyboardRemove, FSInputFile
 from aiogram.fsm.context import FSMContext
 from tgbot.states.bot_states import BotState
 from tgbot.services.instagram import login_and_save_session, like_post_and_screenshot
@@ -37,44 +37,22 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
         await state.set_state(BotState.ready_for_links)
         await status_message.edit_text("Instagram ulandi! Endi post havolasini yuboring.")
     else:
-        # 1. Kutish xabarini o'chirib yuboramiz
-        try:
-            await status_message.delete()
-        except Exception:
-            pass
-
-        # 2. Xato yuz berganda /start tugmasini yaratamiz
-        start_keyboard = ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text="/start")]
-            ],
-            resize_keyboard=True,
-            one_time_keyboard=True
-        )
-
-        # 3. Agarda login_error.png fayli bo'lsa, uni yuboramiz
-        if os.path.exists("login_error.png"):
-            error_photo = FSInputFile("login_error.png")
-            try:
+            # Agarda login_error.png fayli mavjud bo'lsa, uni foydalanuvchiga yuboramiz
+            if os.path.exists("login_error.png"):
+                error_photo = FSInputFile("login_error.png")
                 await message.answer_photo(
                     photo=error_photo, 
-                    caption="⚠️ Instagram ekranida mana bu holat yuz berdi:"
+                    caption="⚠️ Instagram ekranida mana bu holat yuz berdi. Tugma topilmadi:"
                 )
+                # Rasmni yuborgach, keyingi safar yangi rasm tushishi uchun eskisini o'chirib yuboramiz
                 os.remove("login_error.png")
-            except Exception as e:
-                print(f"Screenshot yuborishda xatolik: {e}")
-
-        # 4. State holatini tozalaymiz
-        await state.clear()
-        
-        # 5. Foydalanuvchiga xatolik va /start tugmasini yuboramiz
-        await message.answer(
-            f"❌ **Kirishda xatolik yuz berdi!**\n\n"
-            f"⚠️ *Xatolik:* {error_msg}\n\n"
-            f"Qaytadan boshlash uchun quyidagi **/start** tugmasini bosing:",
-            reply_markup=start_keyboard,
-            parse_mode="Markdown"
-        )
+    
+            await state.set_state(BotState.waiting_for_username)
+            await message.answer(
+                f"❌ **Kirishda xatolik yuz berdi!**\n\n"
+                f"⚠️ *Xatolik:* {error_msg}\n\n"
+                f"👤 **Qaytadan urinib ko'ring. Instagram username-ni kiriting:**"
+            )
             
 @liker_router.message(BotState.ready_for_links)
 async def handle_instagram_link(message: Message) -> None:
