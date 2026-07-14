@@ -5,7 +5,7 @@ from aiogram import Router, F
 from aiogram.types import Message, ReplyKeyboardRemove, FSInputFile, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from tgbot.states.bot_states import BotState
-from tgbot.services.instagram import login_and_save_session, like_post_and_screenshot
+from tgbot.services import like_post_and_screenshot, login_and_save_session
 
 liker_router = Router()
 
@@ -19,9 +19,9 @@ async def agreement_yes(message: Message, state: FSMContext) -> None:
 
 @liker_router.message(BotState.waiting_for_credentials)
 async def process_credentials(message: Message, state: FSMContext) -> None:
-    if " " in message.text:
-        await message.answer("Xatolik! Probel bo'lmasligi kerak.\nFormat: 'username:password'")
-        return
+    if not message.text or " " in message.text:
+            await message.answer("Xatolik! Probel bo'lmasligi kerak.\nFormat: 'username:password'")
+            return
 
     parts = message.text.split(":")
     if len(parts) != 2 or not parts[0] or not parts[1]:
@@ -30,7 +30,11 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
         
     username, password = parts[0], parts[1]
     status_message = await message.answer("Instagramga kirish harakat qilinmoqda...")
-    
+
+    if not message.from_user:
+            await message.answer("Xatolik! Foydalanuvchi ma'lumotlari topilmadi.")
+            return
+            
     success, error_msg = await login_and_save_session(message.from_user.id, username, password)
     
     if success:
@@ -84,13 +88,16 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
             
 @liker_router.message(BotState.ready_for_links)
 async def handle_instagram_link(message: Message) -> None:
-    link = message.text.strip()
+    link = (message.text or "").strip()
     
     if not re.match(r"(https?://)?(www\.)?instagram\.com/(p|reel|reels|tv)/.+", link):
             await message.answer("Iltimos, faqat to'g'ri Instagram post yoki reel havolasini yuboring.")
             return
         
     status_message = await message.answer("Like bosilmoqda va screenshot olinmoqda...")
+    if not message.from_user:
+            await message.answer("Xatolik! Foydalanuvchi ma'lumotlari aniqlanmadi.")
+            return
     user_id = message.from_user.id
     screenshot_path = f"screenshot_{user_id}.png"
     

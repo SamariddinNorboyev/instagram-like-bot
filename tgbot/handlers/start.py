@@ -2,7 +2,7 @@
 import os
 from aiogram import Router, F
 from aiogram.filters import CommandStart
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from tgbot.states.bot_states import BotState
 from tgbot.config import COOKIES_DIR
@@ -25,6 +25,9 @@ def get_restart_keyboard():
 
 @start_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext) -> None:
+    if not message.from_user:
+        await message.answer("Xatolik! Foydalanuvchi ma'lumotlari aniqlanmadi.")
+        return
     user_id = message.from_user.id
     cookie_path = f"{COOKIES_DIR}/{user_id}.json"
     
