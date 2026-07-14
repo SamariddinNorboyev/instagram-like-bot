@@ -50,36 +50,36 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
             one_time_keyboard=True
         )
 
-        # 3. Agar serverda screenshot (login_error.png) mavjud bo'lsa, foydalanuvchiga yuboramiz
+        # 3. Agar serverda screenshot (login_error.png) bo'lsa, yuboramiz
         if os.path.exists("login_error.png"):
             error_photo = FSInputFile("login_error.png")
             try:
+                # Maxsus belgilarda xato bermasligi uchun HTML rejimiga o'tkazildi
                 await message.answer_photo(
                     photo=error_photo, 
                     caption=(
-                        f"❌ **Kirishda xatolik yuz berdi!**\n\n"
-                        f"⚠️ *Tafsilot:* {error_msg}\n\n"
+                        f"❌ <b>Kirishda xatolik yuz berdi!</b>\n\n"
+                        f"⚠️ <i>Tafsilot:</i> {error_msg}\n\n"
                         f"Ekran holati yuqoridagi rasmda ko'rsatilgan. "
-                        f"Qayta boshlash uchun **/start** tugmasini bosing:"
+                        f"Qayta boshlash uchun <b>/start</b> tugmasini bosing:"
                     ),
                     reply_markup=start_keyboard,
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
-                # Rasmni yuborgandan so'ng xotirada qolmasligi uchun o'chiramiz
                 os.remove("login_error.png")
                 await state.clear()
-                return  # Rasmni yuborib bo'lgach, jarayonni to'xtatamiz
+                return
             except Exception as e:
                 print(f"Rasm yuborishda xatolik yuz berdi: {e}")
 
-        # 4. Agar biron sabab bilan rasm yaratilmagan bo'lsa, faqat matnli xabar yuboramiz
+        # 4. Agar rasm bo'lmasa, faqat matnli xabarni HTML formatda yuboramiz
         await state.clear()
         await message.answer(
-            f"❌ **Kirishda xatolik yuz berdi!**\n\n"
-            f"⚠️ *Xatolik:* {error_msg}\n\n"
-            f"Qaytadan urinish uchun quyidagi **/start** tugmasini bosing:",
+            f"❌ <b>Kirishda xatolik yuz berdi!</b>\n\n"
+            f"⚠️ <i>Tafsilot:</i> {error_msg}\n\n"
+            f"Qayta boshlash uchun quyidagi <b>/start</b> tugmasini bosing:",
             reply_markup=start_keyboard,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
             
 @liker_router.message(BotState.ready_for_links)
@@ -104,7 +104,6 @@ async def handle_instagram_link(message: Message) -> None:
         if os.path.exists(screenshot_path):
             os.remove(screenshot_path)
     else:
-        # Like bosishda xato bo'lsa, o'sha paytdagi rasmni (like_error.png) yuboramiz
         try:
             await status_message.delete()
         except Exception:
