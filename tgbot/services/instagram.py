@@ -46,13 +46,13 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
                     alert_text = await error_message_locator.text_content()
                     await browser.close()
                     return False, f"Instagram xabari: {alert_text}"
-                            
-                # Agar matn yo'q, lekin baribir login sahifasida bo'lsak
-                await browser.close()
+                
                 try:
                     await page.screenshot(path="login_error.png", full_page=True)
                 except Exception as screenshot_err:
-                    print(f"Screenshot olishda xatolik: {screenshot_err}")
+                    print(f"Screenshot olishda xatolik: {screenshot_err}")         
+                # Agar matn yo'q, lekin baribir login sahifasida bo'lsak
+                await browser.close()
                 return False, "Tizimga kirish rad etildi (Instagram bot deb gumon qilgan bo'lishi mumkin)."
                             
             await context.storage_state(path=cookie_path)
