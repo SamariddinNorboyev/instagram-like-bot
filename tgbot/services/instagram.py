@@ -1,4 +1,4 @@
-# PlayWritght browser skriptlari
+# tgbot/services/instagram.py
 import os
 import asyncio
 from playwright.async_api import async_playwright
@@ -19,12 +19,20 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             await page.goto("https://www.instagram.com/accounts/login/")
             await page.wait_for_selector("input[name='username']", timeout=15000)
             
+            # Kuki oynasi chiqsa, uni yopamiz
+            try:
+                await page.click("button:has-text('Allow'), button:has-text('Accept')", timeout=3000)
+            except Exception:
+                pass
+            
             await page.fill("input[name='username']", username)
             await page.fill("input[name='password']", password)
+            await page.wait_for_selector("button[type='submit']", timeout=10000)
             await page.click("button[type='submit']")
-            
+        
             await asyncio.sleep(5)
             
+            # Login muvaffaqiyatli o'tganini tekshirish
             if "login" in page.url:
                 await browser.close()
                 return False, "Login yoki parol noto'g'ri."
@@ -34,6 +42,11 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             return True, ""
             
         except Exception as e:
+            try:
+                await page.screenshot(path="login_error.png", full_page=True)
+            except Exception as screenshot_err:
+                print(f"Screenshot olishda xatolik: {screenshot_err}")
+                        
             await browser.close()
             return False, str(e)
 
@@ -55,19 +68,33 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
         
         try:
             await page.goto(post_url)
+            await page.wait_for_load_state("networkidle") # Sahifa to'liq yuklanishini kutamiz
             await asyncio.sleep(3)
             
-            like_button_selector = "span[class*='xp7jhwk'] svg[aria-label='Like'], svg[aria-label='Yurakcha']"
-            try:
-                await page.click(like_button_selector, timeout=5000)
-                await asyncio.sleep(1)
-            except Exception:
-                pass
+            # "Unlike" tugmasi bor-yo'qligini tekshiramiz (agar avvalroq layk bosilgan bo'lsa)
+            already_liked = await page.locator("svg[aria-label='Unlike'], svg[aria-label='Yoqtirishdan voz kechish']").count()
+            
+            if already_liked > 0:
+                # Avvaldan layk bosilgan bo'lsa, qayta bosmaymiz
+                await page.screenshot(path=screenshot_path)
+                return True, "Ushbu postga avvaldan layk bosilgan!"
+            
+            # Agar layk bosilmagan bo'lsa, bosamiz
+            like_button = page.locator("span[class*='xp7jhwk'] svg[aria-label='Like'], svg[aria-label='Yurakcha']")
+            await like_button.first.click(timeout=7000)
+            await asyncio.sleep(1.5) # Layk animatsiyasi tugashini kutamiz
                 
             await page.screenshot(path=screenshot_path)
-            await browser.close()
             return True, ""
             
         except Exception as e:
-            await browser.close()
+            # Xatolik bo'lsa ham tushunarsiz vaziyatni rasmga olamiz
+            try:
+                await page.screenshot(path="like_error.png")
+            except Exception:
+                pass
             return False, str(e)
+            
+        finally:
+            # Brauzer har qanday holatda ham (xato chiqsa ham) xotirada qolib ketmasligi uchun yopiladi
+            await browser.close()
