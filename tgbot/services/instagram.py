@@ -17,7 +17,7 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
         
         try:
             await page.goto("https://www.instagram.com/accounts/login/")
-            await page.wait_for_selector("input[name='username']", timeout=15000)
+            await page.wait_for_selector("input[name='username']", timeout=20000)
             
             # Kuki oynasi chiqsa, uni yopamiz
             try:
