@@ -61,9 +61,12 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
                 await browser.close()
                 return False, "Login yoki parol noto'g'ri."
 
+            await page.wait_for_url("**/instagram.com/**", timeout=15000)
+            await asyncio.sleep(5)
+            
             # MUHIM: Sessiya (Kuki)ni to'liq saqlaymiz
             await context.storage_state(path=cookie_path)
-            await asyncio.sleep(1) # Fayl tizimiga yozilishini kutamiz
+            await asyncio.sleep(2) # Fayl tizimiga yozilishini kutamiz
             await browser.close()
             return True, ""
             
@@ -85,7 +88,6 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        # Saqlangan sessiya (kuki) bilan brauzerni ochamiz
         context = await browser.new_context(
             storage_state=cookie_path,
             viewport={"width": 375, "height": 812},
@@ -94,11 +96,27 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
         page = await context.new_page()
         
         try:
+            # 1. Post sahifasiga o'tamiz va yuklanishini kutamiz
             await page.goto(post_url)
             await page.wait_for_load_state("networkidle")
             await asyncio.sleep(4)
             
-            # Agar ekranda tizimga kirishni so'rab chiquvchi oyna bo'lsa, uni yopishga harakat qilamiz
+            # 2. SHU YERGA QO'SHILDI: Tizimga kirganimizni tekshiramiz
+            is_logged_in = await page.locator("a[href*='/accounts/login/'], button:has-text('Log in'), button:has-text('log in')").count() == 0
+            if not is_logged_in:
+                await browser.close()
+                return False, "Sessiya muddati tugagan. Iltimos, qaytadan login qiling (/start)!"
+
+            # 3. Agar "Continue on web" tugmasi chiqsa, bosamiz
+            try:
+                continue_web = page.locator("a:has-text('Continue on web'), button:has-text('Continue on web'), [role='button']:has-text('Continue on web')").first
+                if await continue_web.is_visible():
+                    await continue_web.click()
+                    await asyncio.sleep(3)
+            except Exception:
+                pass
+
+            # 4. Agar har xil qalqib chiquvchi (pop-up) oynalar bo'lsa, yopamiz
             try:
                 close_button = page.locator("svg[aria-label='Close'], svg[aria-label='Yopish']").first
                 if await close_button.is_visible():
@@ -107,14 +125,13 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
             except Exception:
                 pass
 
-            # Layk bosilgan yoki bosilmaganini tekshiramiz
+            # 5. Layk bosilgan/bosilmaganini tekshirish
             already_liked = await page.locator("svg[aria-label='Unlike'], svg[aria-label='Yoqtirishdan voz kechish']").count()
-            
             if already_liked > 0:
                 await page.screenshot(path=screenshot_path)
                 return True, "Ushbu postga avvaldan layk bosilgan!"
             
-            # Mobil versiyada layk tugmasi locatorini kengaytiramiz
+            # 6. Layk tugmasini bosish
             like_button = page.locator(
                 "span[class*='xp7jhwk'] svg[aria-label='Like'], "
                 "svg[aria-label='Like'], "
@@ -124,7 +141,7 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
             
             await like_button.wait_for(state="visible", timeout=10000)
             await like_button.click(force=True)
-            await asyncio.sleep(2) # Animatsiya yakunlanishini kutamiz
+            await asyncio.sleep(2)
                 
             await page.screenshot(path=screenshot_path)
             return True, ""
