@@ -17,23 +17,29 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
         
         try:
             await page.goto("https://www.instagram.com/accounts/login/")
+            
+            # Kuki tugmasini qidirib bosish
             try:
                 cookie_button = page.locator("button:has-text('Allow all cookies'), button:has-text('Allow essential and optional cookies')")
                 await cookie_button.wait_for(state="visible", timeout=7000)
                 await cookie_button.click()
-                await asyncio.sleep(1)
+                # Oyna yopilib ketishi uchun barqaror vaqt kutamiz
+                await asyncio.sleep(1.5)
             except Exception:
                 pass
 
-            await page.wait_for_selector("input[name='username']", timeout=15000)
+            # Inputlar tayyor bo'lishini kutamiz
+            await page.wait_for_selector("input[name='username']", state="visible", timeout=15000)
             await page.fill("input[name='username']", username)
             await page.fill("input[name='password']", password)
 
+            # Tabiiy usulda formani jo'natish (Enter tugmasi orqali)
             await page.keyboard.press("Enter")
         
-            await asyncio.sleep(5)
+            # Kirish jarayoni uchun kutish
+            await asyncio.sleep(6)
             
-            # Login muvaffaqiyatli o'tganini tekshirish
+            # Agar URL manzilida hali ham login so'zi bo'lsa, demak ma'lumotlar xato
             if "login" in page.url:
                 await browser.close()
                 return False, "Login yoki parol noto'g'ri."
@@ -69,27 +75,24 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
         
         try:
             await page.goto(post_url)
-            await page.wait_for_load_state("networkidle") # Sahifa to'liq yuklanishini kutamiz
+            await page.wait_for_load_state("networkidle")
             await asyncio.sleep(3)
             
-            # "Unlike" tugmasi bor-yo'qligini tekshiramiz (agar avvalroq layk bosilgan bo'lsa)
+            # Avval layk bosilgan yoki bosilmaganini aniqlaymiz
             already_liked = await page.locator("svg[aria-label='Unlike'], svg[aria-label='Yoqtirishdan voz kechish']").count()
             
             if already_liked > 0:
-                # Avvaldan layk bosilgan bo'lsa, qayta bosmaymiz
                 await page.screenshot(path=screenshot_path)
                 return True, "Ushbu postga avvaldan layk bosilgan!"
             
-            # Agar layk bosilmagan bo'lsa, bosamiz
             like_button = page.locator("span[class*='xp7jhwk'] svg[aria-label='Like'], svg[aria-label='Yurakcha']")
             await like_button.first.click(timeout=7000)
-            await asyncio.sleep(1.5) # Layk animatsiyasi tugashini kutamiz
+            await asyncio.sleep(1.5)
                 
             await page.screenshot(path=screenshot_path)
             return True, ""
             
         except Exception as e:
-            # Xatolik bo'lsa ham tushunarsiz vaziyatni rasmga olamiz
             try:
                 await page.screenshot(path="like_error.png")
             except Exception:
@@ -97,5 +100,4 @@ async def like_post_and_screenshot(user_id: int, post_url: str, screenshot_path:
             return False, str(e)
             
         finally:
-            # Brauzer har qanday holatda ham (xato chiqsa ham) xotirada qolib ketmasligi uchun yopiladi
             await browser.close()
