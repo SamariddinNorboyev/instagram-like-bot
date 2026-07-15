@@ -38,9 +38,15 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
 
     await state.set_state(BotState.waiting_for_agreement)
     await message.answer(
-        "Assalomu alaykum!\nIshonch Instagram Liker botiga xush kelibsiz. Ma'lumotlaringiz saqlanishiga rozimisiz?",
-        reply_markup=get_agreement_keyboard()
-    )
+            "<b>⚙️ Bot faqat quyidagi akkauntlar bilan ishlaydi:</b>\n\n"
+            " <b>SMS</b> — Ikki bosqichli tasdiqlash kodi SMS orqali keladigan\n"
+            " <b>WhatsApp</b> — Ikki bosqichli tasdiqlash kodi WhatsApp orqali keladigan\n"
+            " <b>Ochiq</b> — Ikki bosqichli tasdiqlash umuman ulanmagan\n\n"
+            "───────────────────────\n"
+            " Davom etish uchun ma'lumotlaringiz saqlanishiga rozimisiz?",
+            reply_markup=get_agreement_keyboard(),
+            parse_mode="HTML"
+        )
 
 @start_router.message(BotState.waiting_for_agreement, F.text.lower() == "yo'q")
 async def agreement_no(message: Message, state: FSMContext) -> None:
