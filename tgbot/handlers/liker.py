@@ -5,7 +5,7 @@ from aiogram import Router, F
 from aiogram.types import Message, ReplyKeyboardRemove, FSInputFile, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from tgbot.states.bot_states import BotState
-from tgbot.services import like_post_and_screenshot, login_and_save_session
+from tgbot.services import like_post_and_screenshot, login_and_save_session, submit_2fa_code_and_save
 
 liker_router = Router()
 
@@ -35,11 +35,23 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
             await message.answer("Xatolik! Foydalanuvchi ma'lumotlari topilmadi.")
             return
             
-    success, error_msg = await login_and_save_session(message.from_user.id, username, password)
-    
-    if success:
+    success, result_msg = await login_and_save_session(message.from_user.id, username, password)
+
+    if result_msg == "2fa_required":
+        await state.set_state(BotState.waiting_for_2fa_code)
+        await status_message.answer(
+            "🔒 <b>Ikki bosqichli xavfsizlik (2FA) aniqlandi!</b>\n\n"
+            "Sizga Instagram tomonidan yuborilgan (SMS, WhatsApp) tasdiqlash kodini yozib yuboring:",
+            parse_mode="HTML"
+        )
+
+    elif success:
         await state.set_state(BotState.ready_for_links)
-        await status_message.answer("<b>✨ Instagram ulandi!</b>\n📥 Endi post yoki reel havolasini yuboring.", parse_mode="HTML")
+        await status_message.answer(
+            "✨ Instagram ulandi!\n"
+            "📥 Endi post yoki reel havolasini yuboring.",
+            parse_mode="HTML"
+        )
     else:
         # 1. Kutish xabarini o'chiramiz
         try:
@@ -63,7 +75,7 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
                     photo=error_photo, 
                     caption=(
                         f"❌ <b>Kirishda xatolik yuz berdi!</b>\n\n"
-                        f"⚠️ <i>Tafsilot:</i> {error_msg}\n\n"
+                        f"⚠️ <i>Tafsilot:</i> {result_msg}\n\n"
                         f"Ekran holati yuqoridagi rasmda ko'rsatilgan. "
                         f"Qayta boshlash uchun <b>/start</b> tugmasini bosing:"
                     ),
@@ -80,7 +92,7 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
         await state.clear()
         await message.answer(
             f"❌ <b>Kirishda xatolik yuz berdi!</b>\n\n"
-            f"⚠️ <i>Tafsilot:</i> {error_msg}\n\n"
+            f"⚠️ <i>Tafsilot:</i> {result_msg}\n\n"
             f"Qayta boshlash uchun quyidagi <b>/start</b> tugmasini bosing:",
             reply_markup=start_keyboard,
             parse_mode="HTML"
@@ -137,3 +149,61 @@ async def handle_instagram_link(message: Message) -> None:
             os.remove("like_error.png")
         else:
             await message.answer(f"❌ Xatolik yuz berdi: {error_msg}")
+
+            
+
+@liker_router.message(BotState.waiting_for_2fa_code)
+async def process_2fa_code(message: Message, state: FSMContext) -> None:
+    code = (message.text or "").strip()
+    
+    # Faqat raqamlardan iboratligini tekshiramiz (odatda 6 yoki 8 xonali raqam bo'ladi)
+    if not code.isdigit() or len(code) < 6:
+        await message.answer("Iltimos, faqat to'g'ri tasdiqlash kodini yuboring (masalan: 123456).")
+        return
+        
+    status_message = await message.answer("Kod tekshirilmoqda va ulanish yakunlanmoqda...")
+    if not message.from_user:
+            await message.answer("Xatolik! Foydalanuvchi ma'lumotlari topilmadi.")
+            return
+    user_id = message.from_user.id
+    
+    success, error_msg = await submit_2fa_code_and_save(user_id, code)
+    
+    if success:
+        await state.set_state(BotState.ready_for_links)
+        await status_message.answer(
+            "<b>✨ Tabriklaymiz! Instagram muvaffaqiyatli ulandi (2FA tasdiqlandi).</b>\n"
+            "📥 Endi post yoki reel havolasini yuborishingiz mumkin.",
+            parse_mode="HTML"
+        )
+    else:
+        try:
+            await status_message.delete()
+        except Exception:
+            pass
+            
+        start_keyboard = ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text="/start")]],
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
+        
+        # Xato skrinshoti bo'lsa uni ko'rsatish
+        error_file = f"login_error_{user_id}.png"
+        if os.path.exists(error_file):
+            error_photo = FSInputFile(error_file)
+            await message.answer_photo(
+                photo=error_photo,
+                caption=f"❌ <b>2FA tasdiqlashda xatolik!</b>\n\n⚠️ {error_msg}",
+                reply_markup=start_keyboard,
+                parse_mode="HTML"
+            )
+            os.remove(error_file)
+        else:
+            await message.answer(
+                f"❌ <b>Xatolik:</b> {error_msg}\n\nQayta boshlash uchun <b>/start</b> bosing.",
+                reply_markup=start_keyboard,
+                parse_mode="HTML"
+            )
+            
+        await state.clear()
