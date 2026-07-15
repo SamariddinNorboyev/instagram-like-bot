@@ -11,7 +11,6 @@ ACTIVE_2FA_SESSIONS = {}
 
 
 async def login_and_save_session(user_id: int, username: str, password: str) -> tuple[bool, str]:
-    # Kuki saqlanadigan papka mavjudligini tekshiramiz
     if not os.path.exists(COOKIES_DIR):
         os.makedirs(COOKIES_DIR, exist_ok=True)
 
@@ -28,7 +27,6 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
     try:
         await page.goto("https://www.instagram.com/accounts/login/")
     
-        # Kuki oynasini qabul qilish
         try:
             cookie_button = page.locator("button:has-text('Allow all cookies'), button:has-text('Allow essential and optional cookies')")
             await cookie_button.wait_for(state="visible", timeout=5000)
@@ -36,12 +34,10 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
         except Exception:
             pass
     
-        # Login va parolni kiritish
         await page.wait_for_selector("input[name='username']", state="visible", timeout=15000)
         await page.fill("input[name='username']", username)
         await page.fill("input[name='password']", password)
     
-        # Login tugmasini bosish
         login_button = page.locator(
             "button[type='submit'], "
             "div[role='button']:has-text('Log in'), "
@@ -73,7 +69,6 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             }
             return False, "2fa_required"
             
-        # Login amalga oshishini va sahifa yangilanishini kutamiz
         try:
             await page.wait_for_url(lambda url: "login" not in str(url), timeout=7000)
         except Exception:
@@ -119,7 +114,6 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
         return False, str(e)    
 
 
-# tgbot/services/instagram.py fayliga qo'shing:
 async def submit_2fa_code_and_save(user_id: int, code: str) -> tuple[bool, str]:
     """Saqlab turilgan brauzer sessiyasiga 2FA kodini kiritadi va sessiyani saqlaydi."""
     session_data = ACTIVE_2FA_SESSIONS.get(user_id)
@@ -133,7 +127,6 @@ async def submit_2fa_code_and_save(user_id: int, code: str) -> tuple[bool, str]:
     cookie_path = session_data["cookie_path"]
 
     try:
-        # Kod kiritish oynasini to'ldiramiz
         await page.locator("input").first.wait_for(state="visible", timeout=10000)
         await page.locator("input").first.fill(code)
 
@@ -150,21 +143,18 @@ async def submit_2fa_code_and_save(user_id: int, code: str) -> tuple[bool, str]:
         await submit_btn.wait_for(state="visible", timeout=10000)
         await submit_btn.click(force=True)
 
-        # Muvaffaqiyatli o'tganini tekshirish uchun biroz kutamiz (masalan, asosiy sahifa yuklanishini)
         try:
             await page.wait_for_selector("svg[aria-label='Home'], svg[aria-label='Direct']", timeout=10000)
         except Exception:
                 pass
 
         if "login" in page.url or await page.locator("input[name='Code']").is_visible():
-            # Agar hali ham 2FA sahifasida bo'lsa yoki xato bo'lsa
             await page.screenshot(path=f"login_error_{user_id}.png", full_page=True)
             await browser.close()
             await p.stop()
             ACTIVE_2FA_SESSIONS.pop(user_id, None)
             return False, "Kiritilgan 2FA kod noto'g'ri yoki uning muddati o'tgan."
 
-        # Muvaffaqiyatli kirdi! Pop-uplarni tozalash va sessiyani saqlash
         try:
             await _handle_instagram_popups(page, context)
             await asyncio.sleep(1)

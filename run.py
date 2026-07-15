@@ -13,7 +13,6 @@ logging.basicConfig(level=logging.INFO)
 async def main() -> None:
     bot = Bot(token=BOT_TOKEN)
     
-    # Connect to your Redis server (default is localhost)
     redis_client = Redis.from_url("redis://localhost:6379")
     storage = RedisStorage(redis=redis_client)
     

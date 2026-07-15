@@ -53,24 +53,20 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
             parse_mode="HTML"
         )
     else:
-        # 1. Kutish xabarini o'chiramiz
         try:
             await status_message.delete()
         except Exception:
             pass
 
-        # 2. Qayta urinish uchun /start tugmasi
         start_keyboard = ReplyKeyboardMarkup(
             keyboard=[[KeyboardButton(text="/start")]],
             resize_keyboard=True,
             one_time_keyboard=True
         )
 
-        # 3. Agar serverda screenshot (login_error.png) bo'lsa, yuboramiz
         if os.path.exists("login_error.png"):
             error_photo = FSInputFile("login_error.png")
             try:
-                # Maxsus belgilarda xato bermasligi uchun HTML rejimiga o'tkazildi
                 await message.answer_photo(
                     photo=error_photo, 
                     caption=(
@@ -88,7 +84,6 @@ async def process_credentials(message: Message, state: FSMContext) -> None:
             except Exception as e:
                 print(f"Rasm yuborishda xatolik yuz berdi: {e}")
 
-        # 4. Agar rasm bo'lmasa, faqat matnli xabarni HTML formatda yuboramiz
         await state.clear()
         await message.answer(
             f"❌ <b>Kirishda xatolik yuz berdi!</b>\n\n"
@@ -156,7 +151,6 @@ async def handle_instagram_link(message: Message) -> None:
 async def process_2fa_code(message: Message, state: FSMContext) -> None:
     code = (message.text or "").strip()
     
-    # Faqat raqamlardan iboratligini tekshiramiz (odatda 6 yoki 8 xonali raqam bo'ladi)
     if not code.isdigit() or len(code) < 6:
         await message.answer("Iltimos, faqat to'g'ri tasdiqlash kodini yuboring (masalan: 123456).")
         return
@@ -188,7 +182,6 @@ async def process_2fa_code(message: Message, state: FSMContext) -> None:
             one_time_keyboard=True
         )
         
-        # Xato skrinshoti bo'lsa uni ko'rsatish
         error_file = f"login_error_{user_id}.png"
         if os.path.exists(error_file):
             error_photo = FSInputFile(error_file)
