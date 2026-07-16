@@ -55,7 +55,7 @@ async def login_and_save_session(user_id: int, username: str, password: str) -> 
             await page.locator("input[placeholder*='ode'], input[name='verificationCode'], input#code").first.wait_for(state="visible", timeout=15000)
         except Exception:
             pass
-
+        
         page_text = await page.evaluate("document.body.innerText")
         is_2fa = "Check your" in page_text or "Confirm it's you" in page_text or "Code" in page_text
 
